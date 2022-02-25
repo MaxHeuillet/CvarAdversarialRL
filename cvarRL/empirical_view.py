@@ -82,7 +82,7 @@ log_episode_num_frames = torch.zeros(args.procs, device=device)
 
 perturbation_map = np.zeros((envs[0].width - 2, envs[0].height - 2))
 counter_map = np.zeros((envs[0].width - 2, envs[0].height - 2))
-
+budget_map = np.zeros((envs[0].width - 2, envs[0].height - 2))
 
 def stochasticity(action, pbt):
     chosen_proba = 1 - pbt
@@ -103,9 +103,21 @@ adversary.load_state_dict(utils.get_adversary_state(model_dir, "5m"))
 adversary.to("cuda")
 adversary.eval()
 
+step_idx = [0]*args.procs
+budget_counter = [] 
+step_counter = [0]*40
+from collections import defaultdict
+
+budget_counter = defaultdict(list)
+
+
 while log_done_counter < args.episodes:
 
     agent_pos, budgets = env._get_infos()
+
+    for idx,x in zip(step_idx,budgets):
+        budget_counter[idx].append( x.cpu().numpy()[0] )
+        step_counter[idx] += 1
 
     dist, value = agent(agent_pos)
     init_action = dist.sample()
@@ -126,15 +138,17 @@ while log_done_counter < args.episodes:
     positions = agent_pos.cpu().numpy().astype(int)
     for idx, ob in enumerate(positions):
         counter_map[ob[0] - 1, ob[1] - 1] += 1
+        budget_map[ob[0] - 1, ob[1] - 1] += budgets[idx]
         if idx in liste_differents:
             perturbation_map[ob[0] - 1, ob[1] - 1] += 1
 
-    obss, rewards, dones, _ = env.step(
-        action.cpu().numpy(), adv_dist.probs.cpu().detach(), state_dist.cpu().numpy(), None, None
-    )
+    obss, rewards, dones, _ = env.step( action.cpu().numpy(), adv_dist.probs.cpu().detach(), state_dist.cpu().numpy(), None, None )
+    step_idx = [ 0 if done else step_idx[idx]+1 for idx,done in enumerate(dones) ]
+
 
     log_episode_return += torch.tensor(rewards, device=device, dtype=torch.float)
     log_episode_num_frames += torch.ones(args.procs, device=device)
+
 
     for i, done in enumerate(dones):
         if done:
@@ -148,6 +162,9 @@ while log_done_counter < args.episodes:
 
     if log_done_counter % 1000 == 0:
         print(log_done_counter)
+        with gzip.open(os.path.join("./results", "evolution_budget_{}.pkl.gz".format(args.budget) ),  "wb", ) as f:
+            pkl.dump(budget_counter, f)
+            pkl.dump(step_counter, f)
 
 end_time = time.time()
 
@@ -156,14 +173,12 @@ end_time = time.time()
 total = np.divide(perturbation_map, counter_map, out=np.zeros_like(perturbation_map), where=counter_map != 0)
 
 with gzip.open(
-    os.path.join(
-        "./results", "figure2_{}_{}_{}_{}.pkl.gz".format(args.model, args.stochasticity, args.type, args.episodes)
-    ),
-    "wb",
-) as f:
+    os.path.join("./results", "empirical_{}_{}_{}_{}_{}.pkl.gz".format(args.model, args.stochasticity, args.type, args.episodes, args.budget) ),  "wb", ) as f:
     pkl.dump(total, f)
     pkl.dump(perturbation_map.T, f)
     pkl.dump(counter_map.T, f)
+    pkl.dump(budget_map.T, f)
+
 print("SAVED")
 
 # Print logs

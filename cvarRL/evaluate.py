@@ -32,7 +32,7 @@ parser.add_argument("--type", required=True, help="whether with 2m or 5m traject
 parser.add_argument("--cost", required=True, help="cost for each moove")
 parser.add_argument("--episodes", type=int, default=100, help="number of episodes of evaluation (default: 100)")
 parser.add_argument("--seed", type=int, default=0, help="random seed (default: 0)")
-parser.add_argument("--procs", type=int, default=16, help="number of processes (default: 16)")
+parser.add_argument("--procs", type=int, default=1, help="number of processes (default: 16)")
 parser.add_argument("--argmax", action="store_true", default=False, help="action with highest probability is selected")
 parser.add_argument("--worst-episodes-to-show", type=int, default=10, help="how many worst episodes to show")
 parser.add_argument("--memory", action="store_true", default=False, help="add a LSTM to the model")
@@ -81,7 +81,7 @@ log_episode_return = torch.zeros(args.procs, device=device)
 log_episode_num_frames = torch.zeros(args.procs, device=device)
 
 position_history = []
-
+budgets_history = []
 
 def stochasticity(action, pbt):
 
@@ -107,6 +107,7 @@ while log_done_counter < args.episodes and len(position_history) < 40:
 
     agent_pos, budgets = env._get_infos()
     position_history.extend(agent_pos)
+    budgets_history.extend(budgets)
 
     dist, value = agent(agent_pos)
     init_action = dist.sample()
@@ -119,7 +120,11 @@ while log_done_counter < args.episodes and len(position_history) < 40:
     input_adversary = torch.hstack([agent_pos, state_dist, budgets])
     adv_dist, _ = adversary(input_adversary, state_dist, budgets)
 
-    action = adv_dist.sample()
+    if args.argmax:
+        action = dist.probs.max(1, keepdim=True)[1][0]
+        print(action)
+    else:
+        action = dist.sample()
 
     obss, rewards, dones, _ = env.step(action.cpu().numpy(), adv_dist.probs.cpu(), state_dist.cpu().numpy(), None, None)
 
@@ -150,16 +155,13 @@ position_history = [x.tolist() for x in position_history]
 map = np.zeros((width, height))
 
 for x in range(width):
-    for y in range(height):
-        map[x, y] = position_history.count([x + 1, y + 1])
+   for y in range(height):
+       map[x, y] = position_history.count([x + 1, y + 1])
 
 with gzip.open(
-    os.path.join(
-        "./results", "figure2_{}_{}_{}_{}.pkl.gz".format(args.model, args.stochasticity, args.type, args.episodes)
-    ),
-    "wb",
-) as f:
-    pkl.dump(map, f)
+    os.path.join("./results", "newfig_{}_{}_{}_{}.pkl.gz".format(args.model, args.stochasticity, args.type, args.episodes) ), "wb", ) as f:
+    pkl.dump(map,f)
+    pkl.dump(budgets_history, f)
 print("SAVED")
 
 # Print logs

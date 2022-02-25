@@ -76,6 +76,7 @@ class StochasticDistShiftEnv(DistShiftEnv):
         reward = -self.step_cost
         done = False
         self.step_count += 1
+        
 
         next_pos = self.agent_pos + self.ACTION_DIR_VEC[action]
 
@@ -94,6 +95,10 @@ class StochasticDistShiftEnv(DistShiftEnv):
         if next_cell != None and next_cell.type == "lava":
             done = True
             reward = -20
+
+        if self.step_count == 40:
+            done = True
+            reward = 20
 
         reward = reward / 20
 

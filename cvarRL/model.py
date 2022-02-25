@@ -24,34 +24,6 @@ class ACModel(nn.Module, torch_ac.RecurrentACModel):
         self.use_text = use_text
         self.use_memory = use_memory
 
-        # Define image embedding
-        # self.image_conv = nn.Sequential(
-        #     nn.Conv2d(3, 16, (2, 2)),
-        #     nn.ReLU(),
-        #     nn.MaxPool2d((2, 2)),
-        #     nn.Conv2d(16, 32, (2, 2)),
-        #     nn.ReLU(),
-        #     nn.Conv2d(32, 64, (2, 2)),
-        #     nn.ReLU() )
-
-        # n = obs_space["image"][0]
-        # m = obs_space["image"][1]
-        # self.image_embedding_size = ((n-1)//2-2)*((m-1)//2-2)*64
-
-        # Define memory
-        # if self.use_memory:
-        #     self.memory_rnn = nn.LSTMCell(self.image_embedding_size, self.semi_memory_size)
-
-        # Define text embedding
-        # if self.use_text:
-        #     self.word_embedding_size = 32
-        #     self.word_embedding = nn.Embedding(obs_space["text"], self.word_embedding_size)
-        #     self.text_embedding_size = 128
-        #     self.text_rnn = nn.GRU(self.word_embedding_size, self.text_embedding_size, batch_first=True)
-
-        # Resize image embedding
-        # self.embedding_size = self.semi_memory_size
-        # if self.use_text:
         self.embedding_size = 2  # self.text_embedding_size
 
         # Define actor's model
@@ -74,10 +46,6 @@ class ACModel(nn.Module, torch_ac.RecurrentACModel):
     def forward(self, obs):
         x = obs.reshape(obs.shape[0], -1)
         embedding = obs
-
-        # if self.use_text:
-        #     embed_text = self._get_embed_text(obs.text)
-        #     embedding = torch.cat((embedding, embed_text), dim=1)
 
         x = self.actor(embedding)
         dist = Categorical(logits=F.log_softmax(x, dim=1))

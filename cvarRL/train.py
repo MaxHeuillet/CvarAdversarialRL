@@ -127,16 +127,12 @@ model_to_load = None
 adv_model_to_load = None
 
 acmodel = ACModel(obs_space, envs[0].action_space)
-# if model_to_load:
-#    acmodel.load_state_dict( utils.get_status( utils.get_model_dir( model_to_load ) )['model_state'] )
 acmodel.to(device)
 
 txt_logger.info("Model loaded\n")
 txt_logger.info("{}\n".format(acmodel))
 
 acmodel_adversary = ACModel_adversary()
-# if adv_model_to_load:
-#    acmodel_adversary.load_state_dict( utils.get_status( utils.get_model_dir( model_to_load ) ) ['adv_model_state'] )
 acmodel_adversary.to(device)
 
 txt_logger.info("Model adversary loaded\n")
@@ -196,11 +192,6 @@ lr_lambda = get_lr_for_frames(args.max_lr, args.min_lr, args.frames)
 scheduler = torch.optim.lr_scheduler.LambdaLR(algo.optimizer, lr_lambda)
 adversary_scheduler = torch.optim.lr_scheduler.LambdaLR(adversary_algo.optimizer, lr_lambda)
 
-# if model_to_load:
-#     algo.optimizer.load_state_dict( utils.get_status( utils.get_model_dir( model_to_load ) )["optimizer_state"] )
-# if adv_model_to_load:
-#     adversary_algo.optimizer.load_state_dict( utils.get_status( utils.get_model_dir( model_to_load ))['adv_optimizer_state'] )
-
 txt_logger.info("Optimizer loaded\n")
 
 
@@ -227,10 +218,6 @@ while num_frames < args.frames:
         algo.perturbation_map, algo.counter_map, out=np.zeros_like(algo.perturbation_map), where=algo.counter_map != 0
     )
 
-    # print(np.round(batch.T,2))
-    # print()
-    # print(np.round(total.T,2))
-    # print()
 
     if update % 3 == 0:
         logs2 = algo.update_parameters(exps)
@@ -311,4 +298,4 @@ while num_frames < args.frames:
             pkl.dump(algo.perturbation_map.T, f)
             pkl.dump(algo.counter_map.T, f)
 
-        txt_logger.info("Status saved")
+        txt_logger.info("Status saved: {}".format(model_dir) )
